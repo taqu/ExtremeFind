@@ -3,9 +3,10 @@ using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using System;
-using System.ComponentModel.Design;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
+using System.Threading.Tasks;
 using Task = System.Threading.Tasks.Task;
 
 namespace ExtremeFind
@@ -27,19 +28,21 @@ namespace ExtremeFind
     /// To get loaded into VS, the package must be referred by &lt;Asset Type="Microsoft.VisualStudio.VsPackage" ...&gt; in .vsixmanifest file.
     /// </para>
     /// </remarks>
+    [ProvideService(typeof(SSearchService), IsAsyncQueryable = true)]
+    [ProvideAutoLoad(UIContextGuids80.SolutionExists, PackageAutoLoadFlags.BackgroundLoad)]
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(ExtremeFindPackage.PackageGuidString)]
-    [ProvideMenuResource("Menus.ctmenu", 1)]
-    [ProvideToolWindow(typeof(SearchToolWindow))]
-    [ProvideService(typeof(IVsObjectSearch))]
+    [ProvideOptionPage(typeof(OptionExtremeFind), "ExtremeFind", "General", 0, 0, true)]
     public sealed class ExtremeFindPackage : AsyncPackage
     {
         /// <summary>
         /// ExtremeFindPackage GUID string.
         /// </summary>
-        public const string PackageGuidString = "f30975f3-7867-42a0-8f42-d6473157251b";
+        public const string PackageGuidString = "e21aef7d-b9a5-4703-80fd-566a2a7d848a";
 
         #region Package Members
+
+        public static WeakReference<ExtremeFindPackage> Package { get =>package_; }
 
         /// <summary>
         /// Initialization of the package; this method is called right after the package is sited, so this is the place
@@ -50,63 +53,90 @@ namespace ExtremeFind
         /// <returns>A task representing the async work of package initialization, or an already completed task if there is none. Do not return null from this method.</returns>
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
-            // When initialized asynchronously, the current thread may be a background thread at this point.
-            // Do any initialization that requires the UI thread after switching to the UI thread.
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-            await SearchToolWindowCommand.InitializeAsync(this);
 
-            ServiceCreatorCallback callback =new ServiceCreatorCallback(CreateObjectSearchService);
-    ((IServiceContainer)this).AddService(typeof(ObjectSearchService), callback);
+            package_ = new WeakReference<ExtremeFindPackage>(this);
+            runningDocTableEvents_ = new RunningDocTableEvents(this);
 
-            DTE2 dte2 = Package.GetGlobalService(typeof(DTE)) as DTE2;
-            string version = dte2.Version;
+            DTE2 dte2 = GetGlobalService(typeof(EnvDTE.DTE)) as DTE2;
+            solutionEvents_ = dte2.Events.SolutionEvents;
+            solutionEvents_.Opened += OnSolutionOpened;
 
-            EnvDTE.Solution solution = dte2.Solution;
-            if(null != solution) {
-                foreach(EnvDTE.Project project in solution.Projects) {
-                    foreach(ProjectItem projectItem in project.ProjectItems) {
-                        output(projectItem.Name, dte2);
-                    }
-                }
-            }
-            IVsObjectSearch searchService = Package.GetGlobalService(typeof(IVsObjectSearch)) as IVsObjectSearch;
-            if(null != searchService) {
-                output(searchService.ToString(), dte2);
+            projectItemsEvents_ = dte2.Events.SolutionItemsEvents;
+            projectItemsEvents_.ItemAdded += OnProjectItemChanged;
+            projectItemsEvents_.ItemRemoved += OnProjectItemChanged;
+            projectItemsEvents_.ItemRenamed += OnProjectItemRenamed;
+
+            AddService(typeof(SSearchService), CreateSearchServiceAsync);
+
+            ISearchService service = await GetServiceAsync(typeof(SSearchService)) as ISearchService;
+            if(null != service) {
+                await service.UpdateAsync();
             }
         }
 
+        private void OnSolutionOpened()
+        {
+        }
+
+        private void OnProjectItemChanged(ProjectItem projectItem)
+        {
+        }
+
+        private void OnProjectItemRenamed(ProjectItem projectItem, string oldName)
+        {
+
+        }
+
+        private async Task<object> CreateSearchServiceAsync(IAsyncServiceContainer container, CancellationToken cancellationToken, Type serviceType)
+        {
+            if(typeof(SSearchService) != serviceType) {
+                return null;
+            }
+            SearchService service = new SearchService(this);
+            await service.InitializeAsync(cancellationToken);
+            return service;
+        }
         #endregion
 
-        private object CreateObjectSearchService(IServiceContainer container, Type serviceType)
-        {
-            if(typeof(ObjectSearchService) != serviceType) {
-                return null;
-            }
-            DTE2 dte2 = Package.GetGlobalService(typeof(DTE)) as DTE2;
-            if(null == dte2) {
-                return null;
-            }
-            IVsObjectSearch searchService = Package.GetGlobalService(typeof(IVsObjectSearch)) as IVsObjectSearch;
-            if(null == searchService) {
-                return null;
-            }
-            return new ObjectSearchService(searchService);
-        }
-
-        /**
-         * @brief Print a message to the editor's output
-         */
+        /// <summary>
+        /// Print a message to the editor's output
+        /// </summary>
         [System.Diagnostics.Conditional("DEBUG")]
-        public static void output(string message, DTE2 dte)
+        public static void Output(string message)
         {
             Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
-            EnvDTE.OutputWindow outputWindow = dte.ToolWindows.OutputWindow;
+            DTE2 dte2 = GetGlobalService(typeof(DTE)) as DTE2;
+            EnvDTE.OutputWindow outputWindow = dte2.ToolWindows.OutputWindow;
             if(null == outputWindow) {
                 return;
             }
             foreach(EnvDTE.OutputWindowPane window in outputWindow.OutputWindowPanes) {
                 window.OutputString(message);
             }
+            Trace.Write(message);
         }
+
+        /// <summary>
+        /// Print a message to the editor's output
+        /// </summary>
+        public static async Task OutputAsync(string message)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            DTE2 dte2 = GetGlobalService(typeof(DTE)) as DTE2;
+            EnvDTE.OutputWindow outputWindow = dte2.ToolWindows.OutputWindow;
+            if(null == outputWindow) {
+                return;
+            }
+            foreach(EnvDTE.OutputWindowPane window in outputWindow.OutputWindowPanes) {
+                window.OutputString(message);
+            }
+            Trace.Write(message);
+        }
+
+        static private WeakReference<ExtremeFindPackage> package_;
+        private SolutionEvents solutionEvents_;
+        private ProjectItemsEvents projectItemsEvents_;
+        private RunningDocTableEvents runningDocTableEvents_;
     }
 }

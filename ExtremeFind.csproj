@@ -1,9 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <MinimumVisualStudioVersion>16.0</MinimumVisualStudioVersion>
+    <MinimumVisualStudioVersion>17.0</MinimumVisualStudioVersion>
     <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
-    <TargetFrameworkProfile />
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -11,12 +10,12 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectTypeGuids>{82b43b9b-a64c-4715-b499-d71e9ca2bd60};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
-    <ProjectGuid>{68B71858-1483-4823-B58B-CB22F8C8311C}</ProjectGuid>
+    <ProjectGuid>{99B44B95-3624-4A68-B25A-34CC69B3B392}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>ExtremeFind</RootNamespace>
     <AssemblyName>ExtremeFind</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <GeneratePkgDefFile>true</GeneratePkgDefFile>
     <UseCodebase>true</UseCodebase>
     <IncludeAssemblyInVSIXContainer>true</IncludeAssemblyInVSIXContainer>
@@ -46,15 +45,14 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="FileDB.cs" />
-    <Compile Include="ObjectSearchService.cs" />
+    <Compile Include="OptionExtremeFind.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="ProjectTypes.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ExtremeFindPackage.cs" />
-    <Compile Include="SearchToolWindow.cs" />
-    <Compile Include="SearchToolWindowCommand.cs" />
-    <Compile Include="SearchToolWindowControl.xaml.cs">
-      <DependentUpon>SearchToolWindowControl.xaml</DependentUpon>
-    </Compile>
+    <Compile Include="RunningDocTableEvents.cs" />
+    <Compile Include="SearchService.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="source.extension.vsixmanifest">
@@ -75,25 +73,22 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.VisualStudio.SDK" Version="16.0.206" ExcludeAssets="runtime" />
-    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="16.10.1056" />
-    <PackageReference Include="System.Composition.AttributedModel">
-      <Version>6.0.0</Version>
+    <PackageReference Include="LiteDB">
+      <Version>5.0.12</Version>
     </PackageReference>
-    <PackageReference Include="System.Data.HashFunction.xxHash">
-      <Version>2.0.0</Version>
+    <PackageReference Include="Lucene.Net">
+      <Version>4.8.0-beta00016</Version>
     </PackageReference>
+    <PackageReference Include="Lucene.Net.Analysis.Kuromoji">
+      <Version>4.8.0-beta00016</Version>
+    </PackageReference>
+    <PackageReference Include="Lucene.Net.QueryParser">
+      <Version>4.8.0-beta00016</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.0.32112.339" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="17.3.2094" />
   </ItemGroup>
   <ItemGroup>
-    <Page Include="SearchToolWindowControl.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-  </ItemGroup>
-  <ItemGroup>
-    <VSCTCompile Include="ExtremeFindPackage.vsct">
-      <ResourceName>Menus.ctmenu</ResourceName>
-    </VSCTCompile>
     <Content Include="Resources\SearchToolWindowCommand.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
