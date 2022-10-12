@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" ?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="ExtremeFind86.8709713c-122d-4229-beb9-0250d1626b82" Version="1.0" Language="en-US" Publisher="阪井拓郎" />
+        <Identity Id="ExtremeFind86.8709713c-122d-4229-beb9-0250d1626b82" Version="0.1.0" Language="en-US" Publisher="taqu29" />
         <DisplayName>ExtremeFind86</DisplayName>
         <Description xml:space="preserve">Full-text searching extension.</Description>
         <Tags>"code searching" "full-text searching"</Tags>
