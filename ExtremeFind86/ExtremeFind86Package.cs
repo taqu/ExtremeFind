@@ -1,14 +1,13 @@
 ﻿using EnvDTE;
 using EnvDTE80;
 using Microsoft.VisualStudio.Shell;
-using Microsoft.VisualStudio.Shell.Interop;
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
+using Task = System.Threading.Tasks.Task;
 
-namespace ExtremeFind
+namespace ExtremeFind86
 {
     /// <summary>
     /// This is the class that implements the package exposed by this assembly.
@@ -27,23 +26,22 @@ namespace ExtremeFind
     /// To get loaded into VS, the package must be referred by &lt;Asset Type="Microsoft.VisualStudio.VsPackage" ...&gt; in .vsixmanifest file.
     /// </para>
     /// </remarks>
-    [ProvideService(typeof(SSearchService), IsAsyncQueryable = true)]
-    [ProvideAutoLoad(UIContextGuids80.SolutionExists, PackageAutoLoadFlags.BackgroundLoad)]
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
-    [Guid(ExtremeFindPackage.PackageGuidString)]
+    [ProvideAutoLoad(Microsoft.VisualStudio.Shell.Interop.UIContextGuids80.SolutionExists, PackageAutoLoadFlags.BackgroundLoad)]
+    [Guid(ExtremeFind86Package.PackageGuidString)]
     [ProvideOptionPage(typeof(OptionExtremeFind), "ExtremeFind", "General", 0, 0, true)]
     [ProvideMenuResource("Menus.ctmenu", 1)]
     [ProvideToolWindow(typeof(SearchWindow))]
-    public sealed class ExtremeFindPackage : AsyncPackage
+    public sealed class ExtremeFind86Package : AsyncPackage
     {
         /// <summary>
-        /// ExtremeFindPackage GUID string.
+        /// ExtremeFind86Package GUID string.
         /// </summary>
-        public const string PackageGuidString = "e21aef7d-b9a5-4703-80fd-566a2a7d848a";
+        public const string PackageGuidString = "704374ef-46fe-43c2-a50e-69b4f4a1c00d";
 
         #region Package Members
 
-        public static WeakReference<ExtremeFindPackage> Package { get =>package_; }
+        public static WeakReference<ExtremeFind86Package> Package { get =>package_; }
 
         /// <summary>
         /// Initialization of the package; this method is called right after the package is sited, so this is the place
@@ -54,9 +52,10 @@ namespace ExtremeFind
         /// <returns>A task representing the async work of package initialization, or an already completed task if there is none. Do not return null from this method.</returns>
         protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
+            // When initialized asynchronously, the current thread may be a background thread at this point.
+            // Do any initialization that requires the UI thread after switching to the UI thread.
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-
-            package_ = new WeakReference<ExtremeFindPackage>(this);
+            package_ = new WeakReference<ExtremeFind86Package>(this);
             runningDocTableEvents_ = new RunningDocTableEvents(this);
 
             DTE2 dte2 = GetGlobalService(typeof(EnvDTE.DTE)) as DTE2;
@@ -77,7 +76,7 @@ namespace ExtremeFind
             }
         }
 
-        private void OnSolutionOpened()
+         private void OnSolutionOpened()
         {
             JoinableTaskFactory.Run(async () => {
                 ISearchService service = await GetServiceAsync(typeof(SSearchService)) as ISearchService;
@@ -96,7 +95,7 @@ namespace ExtremeFind
 
         }
 
-        private async Task<object> CreateSearchServiceAsync(IAsyncServiceContainer container, CancellationToken cancellationToken, Type serviceType)
+        private async System.Threading.Tasks.Task<object> CreateSearchServiceAsync(IAsyncServiceContainer container, CancellationToken cancellationToken, Type serviceType)
         {
             if(typeof(SSearchService) != serviceType) {
                 return null;
@@ -105,6 +104,7 @@ namespace ExtremeFind
             await service.InitializeAsync(cancellationToken);
             return service;
         }
+
         #endregion
 
         /// <summary>
@@ -142,7 +142,7 @@ namespace ExtremeFind
             Trace.Write(message);
         }
 
-        static private WeakReference<ExtremeFindPackage> package_;
+        static private WeakReference<ExtremeFind86Package> package_;
         private SolutionEvents solutionEvents_;
         private ProjectItemsEvents projectItemsEvents_;
         private RunningDocTableEvents runningDocTableEvents_;

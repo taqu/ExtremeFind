@@ -1,8 +1,8 @@
-﻿using J2N.Collections.Generic;
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 
-namespace ExtremeFind
+namespace ExtremeFind86
 {
     public class OptionExtremeFind : Microsoft.VisualStudio.Shell.DialogPage
     {

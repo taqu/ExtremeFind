@@ -3,10 +3,9 @@ using EnvDTE80;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
-using System.IO.Packaging;
 using System.Linq;
 
-namespace ExtremeFind
+namespace ExtremeFind86
 {
     internal class RunningDocTableEvents : IVsRunningDocTableEvents3
     {
@@ -29,11 +28,11 @@ namespace ExtremeFind
         public int OnAfterSave(uint docCookie)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
-            ExtremeFindPackage package = null;
-            if(!ExtremeFindPackage.Package.TryGetTarget(out package)) {
+            ExtremeFind86Package package = null;
+            if(!ExtremeFind86Package.Package.TryGetTarget(out package)) {
                 return VSConstants.S_OK;
             }
-            DTE2 dte2 = ExtremeFindPackage.GetGlobalService(typeof(EnvDTE.DTE)) as DTE2;
+            DTE2 dte2 = ExtremeFind86Package.GetGlobalService(typeof(EnvDTE.DTE)) as DTE2;
             if(null == dte2) {
                 return VSConstants.S_OK;
             }
