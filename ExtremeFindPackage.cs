@@ -73,7 +73,7 @@ namespace ExtremeFind
             await SearchWindowCommand.InitializeAsync(this);
             ISearchService service = await GetServiceAsync(typeof(SSearchService)) as ISearchService;
             if(null != service) {
-                await service.UpdateAsync();
+                var _ = service.UpdateAsync();
             }
         }
 
@@ -82,7 +82,7 @@ namespace ExtremeFind
             JoinableTaskFactory.Run(async () => {
                 ISearchService service = await GetServiceAsync(typeof(SSearchService)) as ISearchService;
                 if(null != service) {
-                    await service.UpdateAsync();
+                    var _ = service.UpdateAsync();
                 }
             });
         }

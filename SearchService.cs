@@ -1,8 +1,14 @@
 ﻿using EnvDTE;
 using J2N.Collections.Generic;
 using Lucene.Net.Analysis;
+using Lucene.Net.Analysis.Cjk;
+using Lucene.Net.Analysis.Core;
+using Lucene.Net.Analysis.Ja;
 using Lucene.Net.Documents.Extensions;
 using Lucene.Net.Index;
+using Lucene.Net.QueryParsers.Flexible.Core.Config;
+using Lucene.Net.QueryParsers.Flexible.Standard;
+using Lucene.Net.QueryParsers.Flexible.Standard.Config;
 using Lucene.Net.QueryParsers.Simple;
 using Lucene.Net.Search;
 using Lucene.Net.Store;
@@ -37,7 +43,7 @@ namespace ExtremeFind
 
     public interface ISearchService
     {
-        Task InitializeAsync(CancellationToken cancellationToken);
+        System.Threading.Tasks.Task InitializeAsync(CancellationToken cancellationToken);
         System.Threading.Tasks.Task IndexingAsync();
         System.Threading.Tasks.Task DeleteAsync();
         System.Threading.Tasks.Task UpdateAsync();
@@ -99,12 +105,12 @@ namespace ExtremeFind
             serviceProvider_ = serviceProvider;
         }
 
-        public async Task InitializeAsync(CancellationToken cancellationToken)
+        public async System.Threading.Tasks.Task InitializeAsync(CancellationToken cancellationToken)
         {
             await InitializeInternalAsync();
         }
 
-        private async Task<bool> InitializeInternalAsync()
+        private async System.Threading.Tasks.Task<bool> InitializeInternalAsync()
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             EnvDTE80.DTE2 dte2 = Microsoft.VisualStudio.Shell.Package.GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE80.DTE2;
@@ -130,7 +136,8 @@ namespace ExtremeFind
             try {
                 fileInfoDb_ = new LiteDB.LiteDatabase(fileInfoPath);
                 indexDirectory_ = FSDirectory.Open(indexPath);
-                analyzer_ = new Lucene.Net.Analysis.Ja.JapaneseAnalyzer(AppLuceneVersion);
+                analyzer_ = new ExAnalyzer(AppLuceneVersion);
+                whitespaceAnalyzer_ = new WhitespaceAnalyzer(AppLuceneVersion);
             } catch(Exception e) {
                 await ExtremeFindPackage.OutputAsync(string.Format("ExtremeFind: Initialize {0}\n", e));
                 return false;
@@ -174,14 +181,14 @@ namespace ExtremeFind
 
                             try {
                                 string path = items[i].Item1;
-                            var result = pathdates.FindOne(x=>x.Id==path);
-                            if(null != result) {
-                                if(result.Date == currentLastWriteTime) {
-                                    items.RemoveAt(i);
-                                    continue;
+                                var result = pathdates.FindOne(x => x.Id == path);
+                                if(null != result) {
+                                    if(result.Date == currentLastWriteTime) {
+                                        items.RemoveAt(i);
+                                        continue;
+                                    }
                                 }
-                            }
-                            }catch(Exception e) {
+                            } catch(Exception e) {
                                 await ExtremeFindPackage.OutputAsync(string.Format("ExtremeFind: find {0}\n", e));
                             }
                             deleteQueries.Add(new TermQuery(new Term("path", items[i].Item1)));
@@ -220,11 +227,12 @@ namespace ExtremeFind
 
                                 ++lineCount;
                             }
-                            if(8 <= ++fileCount) {
+                            if(64 <= ++fileCount) {
                                 fileCount = 0;
                                 indexWriter.AddDocuments(documents);
+                                indexWriter.Flush(false, false);
                                 documents.Clear();
-                                await Task.Yield();
+                                await System.Threading.Tasks.Task.Yield();
                             }
                             ++indexFileCount;
                         }
@@ -250,7 +258,7 @@ namespace ExtremeFind
             return indexFileCount;
         }
 
-        public async Task IndexingAsync()
+        public async System.Threading.Tasks.Task IndexingAsync()
         {
             EnvDTE80.DTE2 dte2 = Microsoft.VisualStudio.Shell.Package.GetGlobalService(typeof(EnvDTE.DTE)) as EnvDTE80.DTE2;
             if(null == dte2 || null == dte2.Solution) {
@@ -356,7 +364,7 @@ namespace ExtremeFind
             }
         }
 
-        public async Task DeleteAsync()
+        public async System.Threading.Tasks.Task DeleteAsync()
         {
             if(null == indexDirectory_) {
                 bool init = await InitializeInternalAsync();
@@ -469,7 +477,7 @@ namespace ExtremeFind
             }
         }
 
-        public async Task UpdateAsync()
+        public async System.Threading.Tasks.Task UpdateAsync()
         {
             if(null == indexDirectory_) {
                 bool init = await InitializeInternalAsync();
@@ -527,11 +535,11 @@ namespace ExtremeFind
                 return;
             }
             string extension = System.IO.Path.GetExtension(realPath);
-            if(0<extension.Length && '.' == extension[0]) {
+            if(0 < extension.Length && '.' == extension[0]) {
                 extension = extension.Substring(1);
             }
 
-            if(!dialog.ExtensionSet.Contains(extension)){
+            if(!dialog.ExtensionSet.Contains(extension)) {
                 return;
             }
 
@@ -595,7 +603,7 @@ namespace ExtremeFind
             }
         }
 
-        public async Task<SearchResult?> SearchAsync(SearchWindowControl control, SearchQuery searchQuery)
+        public async System.Threading.Tasks.Task<SearchResult?> SearchAsync(SearchWindowControl control, SearchQuery searchQuery)
         {
             ExtremeFindPackage package = await serviceProvider_.GetServiceAsync(typeof(ExtremeFindPackage)) as ExtremeFindPackage;
             if(null == package) {
@@ -619,8 +627,11 @@ namespace ExtremeFind
                 control.Results.Clear();
                 using(DirectoryReader indexReader = DirectoryReader.Open(indexDirectory_)) {
                     IndexSearcher indexSearcher = new IndexSearcher(indexReader);
-                    SimpleQueryParser simpleQueryParser = new SimpleQueryParser(analyzer_, "contents");
-                    Query query = simpleQueryParser.Parse(searchQuery.text_);
+                    StandardQueryParser standardQueryParser = new StandardQueryParser(whitespaceAnalyzer_);
+
+                    QueryConfigHandler config = standardQueryParser.QueryConfigHandler;
+                    config.Set(ConfigurationKeys.DEFAULT_OPERATOR, StandardQueryConfigHandler.Operator.AND);
+                    Query query = standardQueryParser.Parse(searchQuery.text_, "contents");
                     TopDocs result = indexSearcher.Search(query, maxSearchItems);
                     if(null == result || null == result.ScoreDocs) {
                         return searchResult;
@@ -636,7 +647,7 @@ namespace ExtremeFind
                             Line = doc.GetField("line").GetInt32ValueOrDefault()
                         });
                         if(1024 <= ++count) {
-                            await Task.Yield();
+                            await System.Threading.Tasks.Task.Yield();
                         }
                     }
                 }
@@ -695,7 +706,7 @@ namespace ExtremeFind
 
                 switch(projectItem.Kind) {
                 case EnvDTE.Constants.vsProjectItemKindPhysicalFile:
-                    return 0<projectItem.FileCount? projectItem.FileNames[0] : string.Empty;
+                    return 0 < projectItem.FileCount ? projectItem.FileNames[0] : string.Empty;
                 default:
                     break;
                 }
@@ -705,7 +716,7 @@ namespace ExtremeFind
                         return path;
                     }
                 } else if(null != projectItem.SubProject && null != projectItem.SubProject.ProjectItems) {
-                    string path = GetRealPathTraverse(count+1, sections, projectItem.SubProject.ProjectItems);
+                    string path = GetRealPathTraverse(count + 1, sections, projectItem.SubProject.ProjectItems);
                     if(!string.IsNullOrEmpty(path)) {
                         return path;
                     }
@@ -784,6 +795,7 @@ namespace ExtremeFind
         private LiteDB.LiteDatabase fileInfoDb_;
         private FSDirectory indexDirectory_;
         private Analyzer analyzer_;
+        private WhitespaceAnalyzer whitespaceAnalyzer_;
         private HashSet<string> pathCache_;
 
         private object lock_ = new object();

@@ -45,6 +45,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="ExAnalyzer.cs" />
     <Compile Include="OptionExtremeFind.cs">
       <SubType>Component</SubType>
     </Compile>

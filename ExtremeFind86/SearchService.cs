@@ -1,7 +1,11 @@
 ﻿using EnvDTE;
 using Lucene.Net.Analysis;
+using Lucene.Net.Analysis.Core;
 using Lucene.Net.Documents.Extensions;
 using Lucene.Net.Index;
+using Lucene.Net.QueryParsers.Flexible.Core.Config;
+using Lucene.Net.QueryParsers.Flexible.Standard;
+using Lucene.Net.QueryParsers.Flexible.Standard.Config;
 using Lucene.Net.QueryParsers.Simple;
 using Lucene.Net.Search;
 using Lucene.Net.Store;
@@ -123,7 +127,8 @@ namespace ExtremeFind86
             try {
                 fileInfoDb_ = new LiteDB.LiteDatabase(fileInfoPath);
                 indexDirectory_ = FSDirectory.Open(indexPath);
-                analyzer_ = new Lucene.Net.Analysis.Ja.JapaneseAnalyzer(AppLuceneVersion);
+                analyzer_ = new ExAnalyzer(AppLuceneVersion);
+                whitespaceAnalyzer_ = new WhitespaceAnalyzer(AppLuceneVersion);
             } catch(Exception e) {
                 await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Initialize {0}\n", e));
                 return false;
@@ -213,9 +218,10 @@ namespace ExtremeFind86
 
                                 ++lineCount;
                             }
-                            if(8 <= ++fileCount) {
+                            if(64 <= ++fileCount) {
                                 fileCount = 0;
                                 indexWriter.AddDocuments(documents);
+                                indexWriter.Flush(false, false);
                                 documents.Clear();
                                 await System.Threading.Tasks.Task.Yield();
                             }
@@ -612,8 +618,10 @@ namespace ExtremeFind86
                 control.Results.Clear();
                 using(DirectoryReader indexReader = DirectoryReader.Open(indexDirectory_)) {
                     IndexSearcher indexSearcher = new IndexSearcher(indexReader);
-                    SimpleQueryParser simpleQueryParser = new SimpleQueryParser(analyzer_, "contents");
-                    Query query = simpleQueryParser.Parse(searchQuery.text_);
+                    StandardQueryParser standardQueryParser = new StandardQueryParser(whitespaceAnalyzer_);
+                    QueryConfigHandler config = standardQueryParser.QueryConfigHandler;
+                    config.Set(ConfigurationKeys.DEFAULT_OPERATOR, StandardQueryConfigHandler.Operator.AND);
+                    Query query = standardQueryParser.Parse(searchQuery.text_, "contents");
                     TopDocs result = indexSearcher.Search(query, maxSearchItems);
                     if(null == result || null == result.ScoreDocs) {
                         return searchResult;
@@ -777,6 +785,7 @@ namespace ExtremeFind86
         private LiteDB.LiteDatabase fileInfoDb_;
         private FSDirectory indexDirectory_;
         private Analyzer analyzer_;
+        private WhitespaceAnalyzer whitespaceAnalyzer_;
         private HashSet<string> pathCache_;
 
         private object lock_ = new object();
