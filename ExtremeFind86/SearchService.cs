@@ -1,21 +1,24 @@
 ﻿using EnvDTE;
+using J2N.Collections.Generic;
 using Lucene.Net.Analysis;
+using Lucene.Net.Analysis.Cjk;
 using Lucene.Net.Analysis.Core;
+using Lucene.Net.Analysis.Ja;
 using Lucene.Net.Documents.Extensions;
 using Lucene.Net.Index;
 using Lucene.Net.QueryParsers.Flexible.Core.Config;
 using Lucene.Net.QueryParsers.Flexible.Standard;
 using Lucene.Net.QueryParsers.Flexible.Standard.Config;
-using Lucene.Net.QueryParsers.Simple;
 using Lucene.Net.Search;
 using Lucene.Net.Store;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Threading;
 using System;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using static System.Net.WebRequestMethods;
 
 namespace ExtremeFind86
 {
@@ -50,6 +53,9 @@ namespace ExtremeFind86
     public class SearchService : SSearchService, ISearchService
     {
         public const Lucene.Net.Util.LuceneVersion AppLuceneVersion = Lucene.Net.Util.LuceneVersion.LUCENE_48;
+        public const int MaxBufferDocuments = 8*1024;
+        public const string FieldContent = "content";
+        public const string FieldContentLow = "content_low";
 
         public static long UtcNow(DateTime time)
         {
@@ -127,8 +133,8 @@ namespace ExtremeFind86
             try {
                 fileInfoDb_ = new LiteDB.LiteDatabase(fileInfoPath);
                 indexDirectory_ = FSDirectory.Open(indexPath);
-                analyzer_ = new ExAnalyzer(AppLuceneVersion);
-                whitespaceAnalyzer_ = new WhitespaceAnalyzer(AppLuceneVersion);
+                analyzer_ = new ExAnalyzer(AppLuceneVersion, false);
+                lowerAnalyzer_ = new ExAnalyzer(AppLuceneVersion, true);
             } catch(Exception e) {
                 await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Initialize {0}\n", e));
                 return false;
@@ -142,7 +148,7 @@ namespace ExtremeFind86
             public long Date { get; set; }
         };
 
-        private async System.Threading.Tasks.Task<int> IndexFilesAsync(List<Tuple<string, string>> items)
+        private async Task<int> IndexFilesAsync(List<Tuple<string, string>> items)
         {
             int indexFileCount = 0;
             IndexWriterConfig indexWriterConfig = new IndexWriterConfig(AppLuceneVersion, analyzer_);
@@ -152,7 +158,7 @@ namespace ExtremeFind86
             using(IndexWriter indexWriter = new IndexWriter(indexDirectory_, indexWriterConfig))
             using(DirectoryReader indexReader = DirectoryReader.Open(indexDirectory_)) {
 #if DEBUG
-                System.Diagnostics.Stopwatch stopwatchFiltering = System.Diagnostics.Stopwatch.StartNew();
+                Stopwatch stopwatchFiltering = Stopwatch.StartNew();
 #endif
                 IndexSearcher indexSearcher = new IndexSearcher(indexReader);
 
@@ -172,14 +178,14 @@ namespace ExtremeFind86
 
                             try {
                                 string path = items[i].Item1;
-                            var result = pathdates.FindOne(x=>x.Id==path);
-                            if(null != result) {
-                                if(result.Date == currentLastWriteTime) {
-                                    items.RemoveAt(i);
-                                    continue;
+                                var result = pathdates.FindOne(x => x.Id == path);
+                                if(null != result) {
+                                    if(result.Date == currentLastWriteTime) {
+                                        items.RemoveAt(i);
+                                        continue;
+                                    }
                                 }
-                            }
-                            }catch(Exception e) {
+                            } catch(Exception e) {
                                 await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: find {0}\n", e));
                             }
                             deleteQueries.Add(new TermQuery(new Term("path", items[i].Item1)));
@@ -191,6 +197,7 @@ namespace ExtremeFind86
                     } //for(int i = start;
                     if(0 < deleteQueries.Count) {
                         indexWriter.DeleteDocuments(deleteQueries.ToArray());
+                        indexWriter.Commit();
                     }
                 }
 #if DEBUG
@@ -198,36 +205,37 @@ namespace ExtremeFind86
                 await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: filtering files {0} milliseconds\n", stopwatchFiltering.ElapsedMilliseconds));
 #endif
                 List<Lucene.Net.Documents.Document> documents = new List<Lucene.Net.Documents.Document>(1024);
-                int fileCount = 0;
+                int indexLineCount = 0;
                 for(int i = 0; i < items.Count; ++i) {
                     Tuple<string, string> file = items[i];
                     try {
                         int lineCount = 0;
-                        using(FileStream fileStream = new FileStream(file.Item2, FileMode.Open, FileAccess.Read, FileShare.Read))
-                        using(StreamReader streamReader = new StreamReader(fileStream)) {
-                            while(0 <= streamReader.Peek()) {
-                                string line = await streamReader.ReadLineAsync();
+                        {
+                            foreach(string line in System.IO.File.ReadAllLines(file.Item2)) {
                                 Lucene.Net.Documents.Document document = new Lucene.Net.Documents.Document();
                                 Lucene.Net.Documents.StringField pathField = new Lucene.Net.Documents.StringField("path", file.Item1, Lucene.Net.Documents.Field.Store.YES);
                                 document.Add(pathField);
                                 Lucene.Net.Documents.Field lineField = new Lucene.Net.Documents.Int32Field("line", lineCount, Lucene.Net.Documents.Field.Store.YES);
                                 document.Add(lineField);
-                                Lucene.Net.Documents.Field contents = new Lucene.Net.Documents.TextField("contents", line, Lucene.Net.Documents.Field.Store.YES);
-                                document.Add(contents);
+                                Lucene.Net.Documents.Field content = new Lucene.Net.Documents.TextField(FieldContent, line, Lucene.Net.Documents.Field.Store.YES);
+                                document.Add(content);
+                                Lucene.Net.Documents.Field content_low = new Lucene.Net.Documents.TextField(FieldContentLow, line.ToLower(), Lucene.Net.Documents.Field.Store.YES);
+                                document.Add(content_low);
                                 documents.Add(document);
 
                                 ++lineCount;
+                                ++indexLineCount;
                             }
-                            if(64 <= ++fileCount) {
-                                fileCount = 0;
+                            if(MaxBufferDocuments<= ++indexLineCount) {
+                                indexLineCount = 0;
                                 indexWriter.AddDocuments(documents);
-                                indexWriter.Flush(false, false);
+                                indexWriter.Commit();
                                 documents.Clear();
                                 await System.Threading.Tasks.Task.Yield();
                             }
                             ++indexFileCount;
                         }
-                        //ExtremeFind86Package.Output(string.Format("ExtremeFind: index {0} {1} {2}\n", file.Item1, file.Item2, lineCount));
+                        //await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: index {0} {1} {2}\n", file.Item1, file.Item2, lineCount));
                     } catch(Exception e) {
                         await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Indexing {0}\n", e));
                     }
@@ -235,6 +243,7 @@ namespace ExtremeFind86
                 try {
                     if(0 < documents.Count) {
                         indexWriter.AddDocuments(documents);
+                        indexWriter.Commit();
                         documents.Clear();
                     }
                 } catch {
@@ -269,13 +278,13 @@ namespace ExtremeFind86
                 return;
             }
 #if DEBUG
-            System.Diagnostics.Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            Stopwatch stopwatch = Stopwatch.StartNew();
 #endif
             OptionExtremeFind dialog = package.GetDialogPage(typeof(OptionExtremeFind)) as OptionExtremeFind;
             HashSet<string> extensionSet = dialog.ExtensionSet;
 
 #if DEBUG
-            System.Diagnostics.Stopwatch stopwatchFileGather = System.Diagnostics.Stopwatch.StartNew();
+            Stopwatch stopwatchFileGather = Stopwatch.StartNew();
 #endif
             List<Tuple<string, string>> items = new List<Tuple<string, string>>(1024);
             string path = System.IO.Path.GetFileNameWithoutExtension(solutionPath);
@@ -295,7 +304,7 @@ namespace ExtremeFind86
                 using(IndexWriter indexWriter = new IndexWriter(indexDirectory_, new IndexWriterConfig(AppLuceneVersion, analyzer_)))
                 using(DirectoryReader indexReader = DirectoryReader.Open(indexDirectory_)) {
                     IndexSearcher indexSearcher = new IndexSearcher(indexReader);
-                    CollectionStatistics stats = indexSearcher.CollectionStatistics("contents");
+                    CollectionStatistics stats = indexSearcher.CollectionStatistics(FieldContent);
                     await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: indexing {0}/{1} in {2} milliseconds, {3} docs in db\n", indexFileCount, items.Count, elapsedMilliseconds, stats.DocCount));
                 }
             } catch(Exception e) {
@@ -378,7 +387,7 @@ namespace ExtremeFind86
                     Query query = NumericRangeQuery.NewInt64Range("update", 0, timePreUpdate, true, true);
                     indexWriter.DeleteDocuments(query);
 #if DEBUG
-                    CollectionStatistics statsAfter = indexSearcher.CollectionStatistics("contents");
+                    CollectionStatistics statsAfter = indexSearcher.CollectionStatistics(FieldContent);
                     await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Documents after deleting {0}\n", statsAfter.DocCount));
 #endif
                 }
@@ -526,11 +535,11 @@ namespace ExtremeFind86
                 return;
             }
             string extension = System.IO.Path.GetExtension(realPath);
-            if(0<extension.Length && '.' == extension[0]) {
+            if(0 < extension.Length && '.' == extension[0]) {
                 extension = extension.Substring(1);
             }
 
-            if(!dialog.ExtensionSet.Contains(extension)){
+            if(!dialog.ExtensionSet.Contains(extension)) {
                 return;
             }
 
@@ -555,6 +564,7 @@ namespace ExtremeFind86
                     if(null != result) {
                         if(result.Date < currentLastWriteTime) {
                             indexWriter.DeleteDocuments(new TermQuery(new Term("path", path)));
+                            indexWriter.Commit();
                             indexing = true;
                         }
                     }
@@ -564,17 +574,17 @@ namespace ExtremeFind86
                     List<Lucene.Net.Documents.Document> documents = new List<Lucene.Net.Documents.Document>(1024);
                     try {
                         int lineCount = 0;
-                        using(FileStream fileStream = new FileStream(realPath, FileMode.Open, FileAccess.Read, FileShare.Read))
-                        using(StreamReader streamReader = new StreamReader(fileStream)) {
-                            while(0 <= streamReader.Peek()) {
-                                string line = await streamReader.ReadLineAsync();
+                        {
+                            foreach(string line in System.IO.File.ReadAllLines(realPath)) {
                                 Lucene.Net.Documents.Document document = new Lucene.Net.Documents.Document();
                                 Lucene.Net.Documents.StringField pathField = new Lucene.Net.Documents.StringField("path", path, Lucene.Net.Documents.Field.Store.YES);
                                 document.Add(pathField);
                                 Lucene.Net.Documents.Field lineField = new Lucene.Net.Documents.Int32Field("line", lineCount, Lucene.Net.Documents.Field.Store.YES);
                                 document.Add(lineField);
-                                Lucene.Net.Documents.Field contents = new Lucene.Net.Documents.TextField("contents", line, Lucene.Net.Documents.Field.Store.YES);
-                                document.Add(contents);
+                                Lucene.Net.Documents.Field content = new Lucene.Net.Documents.TextField(FieldContent, line, Lucene.Net.Documents.Field.Store.YES);
+                                document.Add(content);
+                                Lucene.Net.Documents.Field content_low = new Lucene.Net.Documents.TextField(FieldContentLow, line.ToLower(), Lucene.Net.Documents.Field.Store.YES);
+                                document.Add(content_low);
                                 documents.Add(document);
 
                                 ++lineCount;
@@ -583,6 +593,7 @@ namespace ExtremeFind86
                             documents.Clear();
                         }
                         pathdates.Upsert(new PathDate { Id = path, Date = currentLastWriteTime });
+                        indexWriter.Commit();
                     } catch(Exception e) {
                         await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Indexing {0}\n", e));
                     }
@@ -594,7 +605,7 @@ namespace ExtremeFind86
             }
         }
 
-        public async Task<SearchResult?> SearchAsync(SearchWindowControl control, SearchQuery searchQuery)
+        public async System.Threading.Tasks.Task<SearchResult?> SearchAsync(SearchWindowControl control, SearchQuery searchQuery)
         {
             ExtremeFind86Package package = await serviceProvider_.GetServiceAsync(typeof(ExtremeFind86Package)) as ExtremeFind86Package;
             if(null == package) {
@@ -612,16 +623,19 @@ namespace ExtremeFind86
             OptionExtremeFind dialog = package.GetDialogPage(typeof(OptionExtremeFind)) as OptionExtremeFind;
             int maxSearchItems = dialog.MaxSearchItems;
 
+            Stopwatch stopwatch = Stopwatch.StartNew();
             SearchResult searchResult = new SearchResult();
-            System.Diagnostics.Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
             try {
                 control.Results.Clear();
                 using(DirectoryReader indexReader = DirectoryReader.Open(indexDirectory_)) {
                     IndexSearcher indexSearcher = new IndexSearcher(indexReader);
-                    StandardQueryParser standardQueryParser = new StandardQueryParser(whitespaceAnalyzer_);
+                    Analyzer analyzer = searchQuery.caseSensitive_? analyzer_ : lowerAnalyzer_;
+                    string field = searchQuery.caseSensitive_ ? FieldContent : FieldContentLow;
+                    StandardQueryParser standardQueryParser = new StandardQueryParser(analyzer);
+
                     QueryConfigHandler config = standardQueryParser.QueryConfigHandler;
                     config.Set(ConfigurationKeys.DEFAULT_OPERATOR, StandardQueryConfigHandler.Operator.AND);
-                    Query query = standardQueryParser.Parse(searchQuery.text_, "contents");
+                    Query query = standardQueryParser.Parse(searchQuery.text_, field);
                     TopDocs result = indexSearcher.Search(query, maxSearchItems);
                     if(null == result || null == result.ScoreDocs) {
                         return searchResult;
@@ -633,7 +647,7 @@ namespace ExtremeFind86
                         Lucene.Net.Documents.Document doc = indexSearcher.Doc(scoreDoc.Doc);
                         control.Results.Add(new SearchWindowControl.SearchResult {
                             Path = doc.GetField("path").GetStringValue(),
-                            Content = doc.GetField("contents").GetStringValue(),
+                            Content = doc.GetField(field).GetStringValue(),
                             Line = doc.GetField("line").GetInt32ValueOrDefault()
                         });
                         if(1024 <= ++count) {
@@ -696,7 +710,7 @@ namespace ExtremeFind86
 
                 switch(projectItem.Kind) {
                 case EnvDTE.Constants.vsProjectItemKindPhysicalFile:
-                    return 0<projectItem.FileCount? projectItem.FileNames[0] : string.Empty;
+                    return 0 < projectItem.FileCount ? projectItem.FileNames[0] : string.Empty;
                 default:
                     break;
                 }
@@ -706,7 +720,7 @@ namespace ExtremeFind86
                         return path;
                     }
                 } else if(null != projectItem.SubProject && null != projectItem.SubProject.ProjectItems) {
-                    string path = GetRealPathTraverse(count+1, sections, projectItem.SubProject.ProjectItems);
+                    string path = GetRealPathTraverse(count + 1, sections, projectItem.SubProject.ProjectItems);
                     if(!string.IsNullOrEmpty(path)) {
                         return path;
                     }
@@ -773,7 +787,7 @@ namespace ExtremeFind86
 
         private void RebuildPachCache()
         {
-            ThreadHelper.ThrowIfNotOnUIThread();
+            Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
             if(null == pathCache_) {
                 pathCache_ = new HashSet<string>(64);
                 GetProjectPaths(pathCache_);
@@ -785,7 +799,7 @@ namespace ExtremeFind86
         private LiteDB.LiteDatabase fileInfoDb_;
         private FSDirectory indexDirectory_;
         private Analyzer analyzer_;
-        private WhitespaceAnalyzer whitespaceAnalyzer_;
+        private Analyzer lowerAnalyzer_;
         private HashSet<string> pathCache_;
 
         private object lock_ = new object();

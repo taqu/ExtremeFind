@@ -12,6 +12,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static Lucene.Net.Util.Fst.Util;
 
 namespace ExtremeFind
 {
@@ -47,20 +48,36 @@ namespace ExtremeFind
             }
         }
 
-        public ExAnalyzer(LuceneVersion matchVersion)
+        public ExAnalyzer(LuceneVersion matchVersion, bool lowerCaseFilter=true)
             :base(matchVersion, DefaultSetHolder.LoadDefaultStopSet(matchVersion))
         {
+            lowerCaseFilter_ = lowerCaseFilter;
         }
 
         protected override TokenStreamComponents CreateComponents(string fieldName, TextReader reader)
         {
+#if false
+            Tokenizer source = new StandardTokenizer(m_matchVersion, reader);
+            TokenStream result = new CJKWidthFilter(source);
+            if(lowerCaseFilter_) {
+                result = new LowerCaseFilter(m_matchVersion, result);
+            }
+            result = new CJKBigramFilter(result);
+            return new TokenStreamComponents(source, new StopFilter(m_matchVersion, result, m_stopwords));
+#else
             Tokenizer tokenizer = new JapaneseTokenizer(reader, null, true, JapaneseTokenizer.DEFAULT_MODE);
             TokenStream stream = new JapaneseBaseFormFilter(tokenizer);
             stream = new JapanesePartOfSpeechStopFilter(m_matchVersion, stream, DefaultSetHolder.LoadDefaultStopTagSet());
             stream = new CJKWidthFilter(stream);
+            if(lowerCaseFilter_) {
+                stream = new LowerCaseFilter(m_matchVersion, stream);
+            }
             stream = new StopFilter(m_matchVersion, stream, m_stopwords);
             stream = new JapaneseKatakanaStemFilter(stream);
             return new TokenStreamComponents(tokenizer, stream);
+#endif
         }
+
+        private bool lowerCaseFilter_;
     }
 }

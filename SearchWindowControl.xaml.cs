@@ -50,7 +50,7 @@ namespace ExtremeFind
             if(!ExtremeFindPackage.Package.TryGetTarget(out package)) {
                 return;
             }
-            SearchQuery query = new SearchQuery { text_ = TextBoxSearch.Text, caseSensitive_ = false };
+            SearchQuery query = new SearchQuery { text_ = TextBoxSearch.Text, caseSensitive_ = (bool)CheckBoxCaseSensitive.IsChecked};
             package.JoinableTaskFactory.Run(
                 async () => {
                     ISearchService service = await package.GetServiceAsync(typeof(SSearchService)) as ISearchService;

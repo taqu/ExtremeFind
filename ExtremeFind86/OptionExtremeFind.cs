@@ -1,5 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using J2N.Collections.Generic;
+using System;
 using System.ComponentModel;
 
 namespace ExtremeFind86
@@ -93,7 +93,7 @@ namespace ExtremeFind86
         }
 
         private string extensions_ =
-                "alg as asm asp awk bas bat c cfg cgi cmd cpp css csv clj coffee def dic dlg exp f for go h hpp hs lhs htm html inf ini java js latex log lsp lua sh tcl tex text txt xml xsl php vs pl ps ps1 py rb ush usm hlsl glsl";
+                "alg as asm asp awk bas bat c cfg cgi cmd cpp css cs cxx csv clj coffee def dic dlg exp f for go h hpp hs lhs htm html inf ini inl java js latex log lsp lua sh tcl tex text txt xml xsl php vs pl ps ps1 py rb ush usm hlsl glsl";
         private HashSet<string> extensionSet_;
         private int maxSearchItems_ = 1000;
         private int maxThreads_ = 4;

@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" ?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="ExtremeFind.c5b9b3b2-c6b3-43ca-9324-6c5cd4ca09a8" Version="0.1.1" Language="en-US" Publisher="taqu29" />
+        <Identity Id="ExtremeFind.c5b9b3b2-c6b3-43ca-9324-6c5cd4ca09a8" Version="0.1.2" Language="en-US" Publisher="taqu29" />
         <DisplayName>ExtremeFind</DisplayName>
         <Description xml:space="preserve">Full-text searching extension.</Description>
         <License>LICENSE.txt</License>

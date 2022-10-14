@@ -1,4 +1,5 @@
-﻿using EnvDTE80;
+﻿using EnvDTE;
+using EnvDTE80;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Windows;
@@ -49,7 +50,7 @@ namespace ExtremeFind86
             if(!ExtremeFind86Package.Package.TryGetTarget(out package)) {
                 return;
             }
-            SearchQuery query = new SearchQuery { text_ = TextBoxSearch.Text, caseSensitive_ = false };
+            SearchQuery query = new SearchQuery { text_ = TextBoxSearch.Text, caseSensitive_ = (bool)CheckBoxCaseSensitive.IsChecked};
             package.JoinableTaskFactory.Run(
                 async () => {
                     ISearchService service = await package.GetServiceAsync(typeof(SSearchService)) as ISearchService;
@@ -91,7 +92,7 @@ namespace ExtremeFind86
             if(null == window) {
                 return;
             }
-            (window.Document.Selection as EnvDTE.TextSelection)?.GotoLine(item.Line + 1, dialog.SelectLineWhenJumping);
+            (window.Document.Selection as TextSelection)?.GotoLine(item.Line + 1, dialog.SelectLineWhenJumping);
         }
 
         private ObservableCollection<SearchResult> results_ = new ObservableCollection<SearchResult>();
