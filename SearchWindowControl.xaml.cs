@@ -1,7 +1,6 @@
 ﻿using EnvDTE;
 using EnvDTE80;
 using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Windows;
 using System.Windows.Controls;
 

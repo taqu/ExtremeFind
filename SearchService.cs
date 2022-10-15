@@ -1,9 +1,6 @@
 ﻿using EnvDTE;
 using J2N.Collections.Generic;
 using Lucene.Net.Analysis;
-using Lucene.Net.Analysis.Cjk;
-using Lucene.Net.Analysis.Core;
-using Lucene.Net.Analysis.Ja;
 using Lucene.Net.Documents.Extensions;
 using Lucene.Net.Index;
 using Lucene.Net.QueryParsers.Flexible.Core.Config;
@@ -15,10 +12,8 @@ using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Threading;
 using System;
 using System.Diagnostics;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using static System.Net.WebRequestMethods;
 
 namespace ExtremeFind
 {
@@ -277,11 +272,10 @@ namespace ExtremeFind
             if(string.IsNullOrEmpty(solutionPath)) {
                 return;
             }
-#if DEBUG
-            Stopwatch stopwatch = Stopwatch.StartNew();
-#endif
             OptionExtremeFind dialog = package.GetDialogPage(typeof(OptionExtremeFind)) as OptionExtremeFind;
             HashSet<string> extensionSet = dialog.ExtensionSet;
+            bool debugLog = dialog.OutputDebugLog;
+            Stopwatch stopwatch = Stopwatch.StartNew();
 
 #if DEBUG
             Stopwatch stopwatchFileGather = Stopwatch.StartNew();
@@ -297,20 +291,21 @@ namespace ExtremeFind
             await ExtremeFindPackage.OutputAsync(string.Format("ExtremeFind: indexing gathering file {0} in {1} milliseconds\n", items.Count, stopwatchFileGather.ElapsedMilliseconds));
 #endif
             int indexFileCount = await IndexFilesAsync(items);
-#if DEBUG
+
             stopwatch.Stop();
-            long elapsedMilliseconds = stopwatch.ElapsedMilliseconds;
-            try {
-                using(IndexWriter indexWriter = new IndexWriter(indexDirectory_, new IndexWriterConfig(AppLuceneVersion, analyzer_)))
-                using(DirectoryReader indexReader = DirectoryReader.Open(indexDirectory_)) {
-                    IndexSearcher indexSearcher = new IndexSearcher(indexReader);
-                    CollectionStatistics stats = indexSearcher.CollectionStatistics(FieldContent);
-                    await ExtremeFindPackage.OutputAsync(string.Format("ExtremeFind: indexing {0}/{1} in {2} milliseconds, {3} docs in db\n", indexFileCount, items.Count, elapsedMilliseconds, stats.DocCount));
+            if(debugLog) {
+                long elapsedMilliseconds = stopwatch.ElapsedMilliseconds;
+                try {
+                    using(IndexWriter indexWriter = new IndexWriter(indexDirectory_, new IndexWriterConfig(AppLuceneVersion, analyzer_)))
+                    using(DirectoryReader indexReader = DirectoryReader.Open(indexDirectory_)) {
+                        IndexSearcher indexSearcher = new IndexSearcher(indexReader);
+                        CollectionStatistics stats = indexSearcher.CollectionStatistics(FieldContent);
+                        await ExtremeFindPackage.OutputAsync(string.Format("ExtremeFind: indexing {0}/{1} in {2} milliseconds, {3} docs in db\n", indexFileCount, items.Count, elapsedMilliseconds, stats.DocCount));
+                    }
+                } catch(Exception e) {
+                    await ExtremeFindPackage.OutputAsync(string.Format("ExtremeFind: indexing {0}\n", e));
                 }
-            } catch(Exception e) {
-                await ExtremeFindPackage.OutputAsync(string.Format("ExtremeFind: indexing {0}\n", e));
             }
-#endif
         }
 
         private void IndexingTraverse(List<Tuple<string, string>> items, string path, EnvDTE.ProjectItems projectItems, HashSet<string> extensionSet)
@@ -378,6 +373,7 @@ namespace ExtremeFind
             }
             OptionExtremeFind dialog = package.GetDialogPage(typeof(OptionExtremeFind)) as OptionExtremeFind;
             long timePreUpdate = Math.Max(0, UtcNow() - dialog.IndexExpiryTime);
+            bool debugLog = dialog.OutputDebugLog;
             IndexWriterConfig indexWriterConfig = new IndexWriterConfig(AppLuceneVersion, analyzer_);
 
             try {
@@ -386,10 +382,10 @@ namespace ExtremeFind
                     IndexSearcher indexSearcher = new IndexSearcher(indexReader);
                     Query query = NumericRangeQuery.NewInt64Range("update", 0, timePreUpdate, true, true);
                     indexWriter.DeleteDocuments(query);
-#if DEBUG
-                    CollectionStatistics statsAfter = indexSearcher.CollectionStatistics(FieldContent);
-                    await ExtremeFindPackage.OutputAsync(string.Format("ExtremeFind: Documents after deleting {0}\n", statsAfter.DocCount));
-#endif
+                    if(debugLog) {
+                        CollectionStatistics statsAfter = indexSearcher.CollectionStatistics(FieldContent);
+                        await ExtremeFindPackage.OutputAsync(string.Format("ExtremeFind: Documents after deleting {0}\n", statsAfter.DocCount));
+                    }
                 }
             } catch(Exception e) {
                 await ExtremeFindPackage.OutputAsync(string.Format("ExtremeFind: Deleting {0}\n", e));
@@ -635,6 +631,7 @@ namespace ExtremeFind
 
                     QueryConfigHandler config = standardQueryParser.QueryConfigHandler;
                     config.Set(ConfigurationKeys.DEFAULT_OPERATOR, StandardQueryConfigHandler.Operator.AND);
+                    //config.Set(ConfigurationKeys.ALLOW_LEADING_WILDCARD, true);
                     Query query = standardQueryParser.Parse(searchQuery.text_, field);
                     TopDocs result = indexSearcher.Search(query, maxSearchItems);
                     if(null == result || null == result.ScoreDocs) {
@@ -661,9 +658,6 @@ namespace ExtremeFind
             stopwatch.Stop();
             searchResult.totalTime_ = stopwatch.ElapsedMilliseconds;
             control.TextStatus = string.Format("Hits:{0}/{1} {2} ms", searchResult.hits_, searchResult.totalHits_, searchResult.totalTime_);
-#if DEBUG
-            await ExtremeFindPackage.OutputAsync(string.Format("ExtremeFind: Searching {0} milliseconds\n", stopwatch.ElapsedMilliseconds));
-#endif
             return searchResult;
         }
 

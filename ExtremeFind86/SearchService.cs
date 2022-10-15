@@ -1,9 +1,6 @@
 ﻿using EnvDTE;
 using J2N.Collections.Generic;
 using Lucene.Net.Analysis;
-using Lucene.Net.Analysis.Cjk;
-using Lucene.Net.Analysis.Core;
-using Lucene.Net.Analysis.Ja;
 using Lucene.Net.Documents.Extensions;
 using Lucene.Net.Index;
 using Lucene.Net.QueryParsers.Flexible.Core.Config;
@@ -15,10 +12,8 @@ using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Threading;
 using System;
 using System.Diagnostics;
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using static System.Net.WebRequestMethods;
 
 namespace ExtremeFind86
 {
@@ -53,7 +48,7 @@ namespace ExtremeFind86
     public class SearchService : SSearchService, ISearchService
     {
         public const Lucene.Net.Util.LuceneVersion AppLuceneVersion = Lucene.Net.Util.LuceneVersion.LUCENE_48;
-        public const int MaxBufferDocuments = 8*1024;
+        public const int MaxBufferDocuments = 8 * 1024;
         public const string FieldContent = "content";
         public const string FieldContentLow = "content_low";
 
@@ -226,7 +221,7 @@ namespace ExtremeFind86
                                 ++lineCount;
                                 ++indexLineCount;
                             }
-                            if(MaxBufferDocuments<= ++indexLineCount) {
+                            if(MaxBufferDocuments <= ++indexLineCount) {
                                 indexLineCount = 0;
                                 indexWriter.AddDocuments(documents);
                                 indexWriter.Commit();
@@ -277,11 +272,10 @@ namespace ExtremeFind86
             if(string.IsNullOrEmpty(solutionPath)) {
                 return;
             }
-#if DEBUG
             Stopwatch stopwatch = Stopwatch.StartNew();
-#endif
             OptionExtremeFind dialog = package.GetDialogPage(typeof(OptionExtremeFind)) as OptionExtremeFind;
             HashSet<string> extensionSet = dialog.ExtensionSet;
+            bool debugLog = dialog.OutputDebugLog;
 
 #if DEBUG
             Stopwatch stopwatchFileGather = Stopwatch.StartNew();
@@ -297,20 +291,20 @@ namespace ExtremeFind86
             await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: indexing gathering file {0} in {1} milliseconds\n", items.Count, stopwatchFileGather.ElapsedMilliseconds));
 #endif
             int indexFileCount = await IndexFilesAsync(items);
-#if DEBUG
             stopwatch.Stop();
-            long elapsedMilliseconds = stopwatch.ElapsedMilliseconds;
-            try {
-                using(IndexWriter indexWriter = new IndexWriter(indexDirectory_, new IndexWriterConfig(AppLuceneVersion, analyzer_)))
-                using(DirectoryReader indexReader = DirectoryReader.Open(indexDirectory_)) {
-                    IndexSearcher indexSearcher = new IndexSearcher(indexReader);
-                    CollectionStatistics stats = indexSearcher.CollectionStatistics(FieldContent);
-                    await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: indexing {0}/{1} in {2} milliseconds, {3} docs in db\n", indexFileCount, items.Count, elapsedMilliseconds, stats.DocCount));
+            if(debugLog) {
+                long elapsedMilliseconds = stopwatch.ElapsedMilliseconds;
+                try {
+                    using(IndexWriter indexWriter = new IndexWriter(indexDirectory_, new IndexWriterConfig(AppLuceneVersion, analyzer_)))
+                    using(DirectoryReader indexReader = DirectoryReader.Open(indexDirectory_)) {
+                        IndexSearcher indexSearcher = new IndexSearcher(indexReader);
+                        CollectionStatistics stats = indexSearcher.CollectionStatistics(FieldContent);
+                        await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: indexing {0}/{1} in {2} milliseconds, {3} docs in db\n", indexFileCount, items.Count, elapsedMilliseconds, stats.DocCount));
+                    }
+                } catch(Exception e) {
+                    await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: indexing {0}\n", e));
                 }
-            } catch(Exception e) {
-                await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: indexing {0}\n", e));
             }
-#endif
         }
 
         private void IndexingTraverse(List<Tuple<string, string>> items, string path, EnvDTE.ProjectItems projectItems, HashSet<string> extensionSet)
@@ -379,6 +373,7 @@ namespace ExtremeFind86
             OptionExtremeFind dialog = package.GetDialogPage(typeof(OptionExtremeFind)) as OptionExtremeFind;
             long timePreUpdate = Math.Max(0, UtcNow() - dialog.IndexExpiryTime);
             IndexWriterConfig indexWriterConfig = new IndexWriterConfig(AppLuceneVersion, analyzer_);
+            bool debugLog = dialog.OutputDebugLog;
 
             try {
                 using(IndexWriter indexWriter = new IndexWriter(indexDirectory_, indexWriterConfig))
@@ -386,10 +381,10 @@ namespace ExtremeFind86
                     IndexSearcher indexSearcher = new IndexSearcher(indexReader);
                     Query query = NumericRangeQuery.NewInt64Range("update", 0, timePreUpdate, true, true);
                     indexWriter.DeleteDocuments(query);
-#if DEBUG
-                    CollectionStatistics statsAfter = indexSearcher.CollectionStatistics(FieldContent);
-                    await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Documents after deleting {0}\n", statsAfter.DocCount));
-#endif
+                    if(debugLog) {
+                        CollectionStatistics statsAfter = indexSearcher.CollectionStatistics(FieldContent);
+                        await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Documents after deleting {0}\n", statsAfter.DocCount));
+                    }
                 }
             } catch(Exception e) {
                 await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Deleting {0}\n", e));
@@ -629,7 +624,7 @@ namespace ExtremeFind86
                 control.Results.Clear();
                 using(DirectoryReader indexReader = DirectoryReader.Open(indexDirectory_)) {
                     IndexSearcher indexSearcher = new IndexSearcher(indexReader);
-                    Analyzer analyzer = searchQuery.caseSensitive_? analyzer_ : lowerAnalyzer_;
+                    Analyzer analyzer = searchQuery.caseSensitive_ ? analyzer_ : lowerAnalyzer_;
                     string field = searchQuery.caseSensitive_ ? FieldContent : FieldContentLow;
                     StandardQueryParser standardQueryParser = new StandardQueryParser(analyzer);
 

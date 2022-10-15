@@ -27,16 +27,6 @@ namespace ExtremeFind86
         }
 
         [Category("General")]
-        [DisplayName("Max Threads")]
-        [Description("Max using threads for operations")]
-        [DefaultValue(true)]
-        public int MaxThreads
-        {
-            get { return maxThreads_; }
-            set { maxThreads_ = Math.Max(1, Math.Min(16, value));}
-        }
-
-        [Category("General")]
         [DisplayName("Index Expiry Time")]
         [Description("Index expiry time in seconds")]
         [DefaultValue(true)]
@@ -59,11 +49,21 @@ namespace ExtremeFind86
         [Category("General")]
         [DisplayName("Select Line When Jumping")]
         [Description("Select the line, when jumping")]
-        [DefaultValue(true)]
+        [DefaultValue(false)]
         public bool SelectLineWhenJumping
         {
             get { return selectLineWhenJumping_; }
             set { selectLineWhenJumping_ = value;}
+        }
+
+        [Category("Debug")]
+        [DisplayName("Debug Log")]
+        [Description("Output debug logs")]
+        [DefaultValue(false)]
+        public bool OutputDebugLog
+        {
+            get { return outputDebugLog_; }
+            set { outputDebugLog_ = value;}
         }
 
         public HashSet<string> ExtensionSet
@@ -96,9 +96,9 @@ namespace ExtremeFind86
                 "alg as asm asp awk bas bat c cfg cgi cmd cpp css cs cxx csv clj coffee def dic dlg exp f for go h hpp hs lhs htm html inf ini inl java js latex log lsp lua sh tcl tex text txt xml xsl php vs pl ps ps1 py rb ush usm hlsl glsl";
         private HashSet<string> extensionSet_;
         private int maxSearchItems_ = 1000;
-        private int maxThreads_ = 4;
         private int indexExpiryTime_ = 60*60*24*30;
         private int updateMinInterval_ = 60;
         private bool selectLineWhenJumping_ = false;
+        private bool outputDebugLog_ = false;
     }
 }

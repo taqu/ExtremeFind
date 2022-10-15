@@ -1,4 +1,4 @@
-# Abstract
+# Overview
 Indexed full-text searching extension for Visual Studio (not Code). 
 Indexing provides fast search instead of the first time indexing time and extra disk space. 
 

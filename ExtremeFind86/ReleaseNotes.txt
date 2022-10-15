@@ -1,0 +1,5 @@
+- v.0.1.2
+  - Add background indexing, case insensitive searching
+- v.0.1.0
+  - Initial release with only perfect matching
+

@@ -1,18 +1,11 @@
 ﻿using Lucene.Net.Analysis;
 using Lucene.Net.Analysis.Cjk;
 using Lucene.Net.Analysis.Core;
-using Lucene.Net.Analysis.En;
 using Lucene.Net.Analysis.Ja;
-using Lucene.Net.Analysis.Standard;
 using Lucene.Net.Analysis.Util;
 using Lucene.Net.Util;
-using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static Lucene.Net.Util.Fst.Util;
 
 namespace ExtremeFind
 {
