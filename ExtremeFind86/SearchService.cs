@@ -21,6 +21,7 @@ namespace ExtremeFind86
     {
         public string text_;
         public bool caseSensitive_;
+        public SearchWindowControl.SearchMethod method_;
     }
 
     public struct SearchResult
@@ -133,6 +134,14 @@ namespace ExtremeFind86
             } catch(Exception e) {
                 await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Initialize {0}\n", e));
                 return false;
+            }
+            return true;
+        }
+
+        private async Task<bool> CheckInitializeAsync()
+        {
+            if(null == indexDirectory_) {
+                return await InitializeInternalAsync();
             }
             return true;
         }
@@ -360,11 +369,8 @@ namespace ExtremeFind86
 
         public async System.Threading.Tasks.Task DeleteAsync()
         {
-            if(null == indexDirectory_) {
-                bool init = await InitializeInternalAsync();
-                if(!init) {
-                    return;
-                }
+            if(false == await CheckInitializeAsync()) {
+                return;
             }
             ExtremeFind86Package package = await serviceProvider_.GetServiceAsync(typeof(ExtremeFind86Package)) as ExtremeFind86Package;
             if(null == package) {
@@ -474,11 +480,8 @@ namespace ExtremeFind86
 
         public async System.Threading.Tasks.Task UpdateAsync()
         {
-            if(null == indexDirectory_) {
-                bool init = await InitializeInternalAsync();
-                if(!init) {
-                    return;
-                }
+            if(false == await CheckInitializeAsync()) {
+                return;
             }
             ExtremeFind86Package package = await serviceProvider_.GetServiceAsync(typeof(ExtremeFind86Package)) as ExtremeFind86Package;
             if(null == package) {
@@ -509,13 +512,9 @@ namespace ExtremeFind86
         public async System.Threading.Tasks.Task UpdateAsync(EnvDTE.ProjectItem projectItem)
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-            if(null == indexDirectory_) {
-                bool init = await InitializeInternalAsync();
-                if(!init) {
-                    return;
-                }
+            if(false == await CheckInitializeAsync()) {
+                return;
             }
-
             ExtremeFind86Package package = await serviceProvider_.GetServiceAsync(typeof(ExtremeFind86Package)) as ExtremeFind86Package;
             if(null == package) {
                 return;
@@ -609,11 +608,8 @@ namespace ExtremeFind86
             await package.JoinableTaskFactory.SwitchToMainThreadAsync();
             RebuildPachCache();
 
-            if(null == indexDirectory_) {
-                bool init = await InitializeInternalAsync();
-                if(!init) {
-                    return null;
-                }
+            if(false == await CheckInitializeAsync()) {
+                return null;
             }
             OptionExtremeFind dialog = package.GetDialogPage(typeof(OptionExtremeFind)) as OptionExtremeFind;
             int maxSearchItems = dialog.MaxSearchItems;
@@ -626,11 +622,21 @@ namespace ExtremeFind86
                     IndexSearcher indexSearcher = new IndexSearcher(indexReader);
                     Analyzer analyzer = searchQuery.caseSensitive_ ? analyzer_ : lowerAnalyzer_;
                     string field = searchQuery.caseSensitive_ ? FieldContent : FieldContentLow;
-                    StandardQueryParser standardQueryParser = new StandardQueryParser(analyzer);
-
-                    QueryConfigHandler config = standardQueryParser.QueryConfigHandler;
-                    config.Set(ConfigurationKeys.DEFAULT_OPERATOR, StandardQueryConfigHandler.Operator.AND);
-                    Query query = standardQueryParser.Parse(searchQuery.text_, field);
+                    Query query = null;
+                    switch(searchQuery.method_) {
+                    case SearchWindowControl.SearchMethod.Simple: {
+                        StandardQueryParser standardQueryParser = new StandardQueryParser(analyzer);
+                        QueryConfigHandler config = standardQueryParser.QueryConfigHandler;
+                        config.Set(ConfigurationKeys.DEFAULT_OPERATOR, StandardQueryConfigHandler.Operator.AND);
+                        //config.Set(ConfigurationKeys.ALLOW_LEADING_WILDCARD, true);
+                        query = standardQueryParser.Parse(searchQuery.text_, field);
+                    }
+                    break;
+                    case SearchWindowControl.SearchMethod.Fuzzy: {
+                        query = new FuzzyQuery(new Term(field, searchQuery.text_));
+                    }
+                    break;
+                    }
                     TopDocs result = indexSearcher.Search(query, maxSearchItems);
                     if(null == result || null == result.ScoreDocs) {
                         return searchResult;

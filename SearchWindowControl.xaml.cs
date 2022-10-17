@@ -11,6 +11,12 @@ namespace ExtremeFind
     /// </summary>
     public partial class SearchWindowControl : UserControl
     {
+        public enum SearchMethod
+        {
+            Simple =0,
+            Fuzzy,
+        };
+
         public class SearchResult
         {
             public string Path { get; set; }
@@ -37,6 +43,9 @@ namespace ExtremeFind
         public SearchWindowControl()
         {
             this.InitializeComponent();
+            CombBoxMethod.ItemsSource = new string[] {
+                "Simple", "Fuzzy"
+            };
             ListViewResult.ItemsSource = results_;
         }
 
@@ -49,7 +58,7 @@ namespace ExtremeFind
             if(!ExtremeFindPackage.Package.TryGetTarget(out package)) {
                 return;
             }
-            SearchQuery query = new SearchQuery { text_ = TextBoxSearch.Text, caseSensitive_ = (bool)CheckBoxCaseSensitive.IsChecked};
+            SearchQuery query = new SearchQuery { text_ = TextBoxSearch.Text, caseSensitive_ = (bool)CheckBoxCaseSensitive.IsChecked, method_=(SearchMethod)CombBoxMethod.SelectedIndex};
             package.JoinableTaskFactory.Run(
                 async () => {
                     ISearchService service = await package.GetServiceAsync(typeof(SSearchService)) as ISearchService;

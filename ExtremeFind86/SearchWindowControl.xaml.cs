@@ -12,6 +12,12 @@ namespace ExtremeFind86
     /// </summary>
     public partial class SearchWindowControl : UserControl
     {
+        public enum SearchMethod
+        {
+            Simple =0,
+            Fuzzy,
+        };
+
         public class SearchResult
         {
             public string Path { get; set; }
