@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Task = System.Threading.Tasks.Task;
 
-namespace ExtremeFind86
+namespace ExtremeFind
 {
     /// <summary>
     /// This is the class that implements the package exposed by this assembly.
@@ -28,11 +28,11 @@ namespace ExtremeFind86
     /// </remarks>
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [ProvideAutoLoad(Microsoft.VisualStudio.Shell.Interop.UIContextGuids80.SolutionExists, PackageAutoLoadFlags.BackgroundLoad)]
-    [Guid(ExtremeFind86Package.PackageGuidString)]
+    [Guid(ExtremeFindPackage.PackageGuidString)]
     [ProvideOptionPage(typeof(OptionExtremeFind), "ExtremeFind", "General", 0, 0, true)]
     [ProvideMenuResource("Menus.ctmenu", 1)]
     [ProvideToolWindow(typeof(SearchWindow))]
-    public sealed class ExtremeFind86Package : AsyncPackage
+    public sealed class ExtremeFindPackage : AsyncPackage
     {
         /// <summary>
         /// ExtremeFind86Package GUID string.
@@ -41,7 +41,7 @@ namespace ExtremeFind86
 
         #region Package Members
 
-        public static WeakReference<ExtremeFind86Package> Package { get =>package_; }
+        public static WeakReference<ExtremeFindPackage> Package { get =>package_; }
 
         /// <summary>
         /// Initialization of the package; this method is called right after the package is sited, so this is the place
@@ -55,7 +55,7 @@ namespace ExtremeFind86
             // When initialized asynchronously, the current thread may be a background thread at this point.
             // Do any initialization that requires the UI thread after switching to the UI thread.
             await this.JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-            package_ = new WeakReference<ExtremeFind86Package>(this);
+            package_ = new WeakReference<ExtremeFindPackage>(this);
             runningDocTableEvents_ = new RunningDocTableEvents(this);
 
             DTE2 dte2 = GetGlobalService(typeof(EnvDTE.DTE)) as DTE2;
@@ -107,42 +107,7 @@ namespace ExtremeFind86
 
         #endregion
 
-        /// <summary>
-        /// Print a message to the editor's output
-        /// </summary>
-        [System.Diagnostics.Conditional("DEBUG")]
-        public static void Output(string message)
-        {
-            Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
-            DTE2 dte2 = GetGlobalService(typeof(DTE)) as DTE2;
-            EnvDTE.OutputWindow outputWindow = dte2.ToolWindows.OutputWindow;
-            if(null == outputWindow) {
-                return;
-            }
-            foreach(EnvDTE.OutputWindowPane window in outputWindow.OutputWindowPanes) {
-                window.OutputString(message);
-            }
-            Trace.Write(message);
-        }
-
-        /// <summary>
-        /// Print a message to the editor's output
-        /// </summary>
-        public static async Task OutputAsync(string message)
-        {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-            DTE2 dte2 = GetGlobalService(typeof(DTE)) as DTE2;
-            EnvDTE.OutputWindow outputWindow = dte2.ToolWindows.OutputWindow;
-            if(null == outputWindow) {
-                return;
-            }
-            foreach(EnvDTE.OutputWindowPane window in outputWindow.OutputWindowPanes) {
-                window.OutputString(message);
-            }
-            Trace.Write(message);
-        }
-
-        static private WeakReference<ExtremeFind86Package> package_;
+        static private WeakReference<ExtremeFindPackage> package_;
         private SolutionEvents solutionEvents_;
         private ProjectItemsEvents projectItemsEvents_;
         private RunningDocTableEvents runningDocTableEvents_;

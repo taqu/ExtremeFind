@@ -1,13 +1,11 @@
 ﻿<?xml version="1.0" ?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
-        <Identity Id="ExtremeFind86.8709713c-122d-4229-beb9-0250d1626b82" Version="0.1.2" Language="en-US" Publisher="taqu29" />
+        <Identity Id="ExtremeFind86.8709713c-122d-4229-beb9-0250d1626b82" Version="0.1.3" Language="en-US" Publisher="taqu29" />
         <DisplayName>ExtremeFind86</DisplayName>
         <Description xml:space="preserve">Full-text searching extension.</Description>
         <MoreInfo>https://github.com/taqu/ExtremeFind</MoreInfo>
         <License>LICENSE.txt</License>
-        <GettingStartedGuide>GettingStartedGuide.txt</GettingStartedGuide>
-        <ReleaseNotes>ReleaseNotes.txt</ReleaseNotes>
         <Tags>"code searching" "full-text searching"</Tags>
         <Preview>true</Preview>
     </Metadata>

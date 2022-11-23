@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects Condition="'$(MSBuildVersion)' == '' Or '$(MSBuildVersion)' &lt; '16.0'">$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>5cef1d9d-bf36-4a4a-81f0-4f29d216ee8c</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>Common</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)ExAnalyzer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Log.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)OptionExtremeFind.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ProjectTypes.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)RunningDocTableEvents.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SearchService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SearchWindow.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SearchWindowCommand.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SearchWindowControl.xaml.cs">
+      <DependentUpon>SearchWindowControl.xaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Include="$(MSBuildThisFileDirectory)SearchWindowControl.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="$(MSBuildThisFileDirectory)GettingStartedGuide.txt" />
+    <Content Include="$(MSBuildThisFileDirectory)LICENSE.txt" />
+    <Content Include="$(MSBuildThisFileDirectory)ReleaseNotes.txt" />
+  </ItemGroup>
+</Project>

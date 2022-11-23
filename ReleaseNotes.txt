@@ -1,3 +1,5 @@
+- v.0.1.3
+  - Add fuzzy searching
 - v.0.1.2
   - Add background indexing, case insensitive searching
 - v.0.1.0

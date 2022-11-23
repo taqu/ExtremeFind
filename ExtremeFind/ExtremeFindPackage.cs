@@ -107,41 +107,6 @@ namespace ExtremeFind
         }
         #endregion
 
-        /// <summary>
-        /// Print a message to the editor's output
-        /// </summary>
-        [System.Diagnostics.Conditional("DEBUG")]
-        public static void Output(string message)
-        {
-            Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
-            DTE2 dte2 = GetGlobalService(typeof(DTE)) as DTE2;
-            EnvDTE.OutputWindow outputWindow = dte2.ToolWindows.OutputWindow;
-            if(null == outputWindow) {
-                return;
-            }
-            foreach(EnvDTE.OutputWindowPane window in outputWindow.OutputWindowPanes) {
-                window.OutputString(message);
-            }
-            Trace.Write(message);
-        }
-
-        /// <summary>
-        /// Print a message to the editor's output
-        /// </summary>
-        public static async Task OutputAsync(string message)
-        {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-            DTE2 dte2 = GetGlobalService(typeof(DTE)) as DTE2;
-            EnvDTE.OutputWindow outputWindow = dte2.ToolWindows.OutputWindow;
-            if(null == outputWindow) {
-                return;
-            }
-            foreach(EnvDTE.OutputWindowPane window in outputWindow.OutputWindowPanes) {
-                window.OutputString(message);
-            }
-            Trace.Write(message);
-        }
-
         static private WeakReference<ExtremeFindPackage> package_;
         private SolutionEvents solutionEvents_;
         private ProjectItemsEvents projectItemsEvents_;

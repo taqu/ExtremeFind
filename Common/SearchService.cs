@@ -15,7 +15,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace ExtremeFind86
+namespace ExtremeFind
 {
     public struct SearchQuery
     {
@@ -49,7 +49,7 @@ namespace ExtremeFind86
     public class SearchService : SSearchService, ISearchService
     {
         public const Lucene.Net.Util.LuceneVersion AppLuceneVersion = Lucene.Net.Util.LuceneVersion.LUCENE_48;
-        public const int MaxBufferDocuments = 8 * 1024;
+        public const int MaxBufferDocuments = 8*1024;
         public const string FieldContent = "content";
         public const string FieldContentLow = "content_low";
 
@@ -132,7 +132,7 @@ namespace ExtremeFind86
                 analyzer_ = new ExAnalyzer(AppLuceneVersion, false);
                 lowerAnalyzer_ = new ExAnalyzer(AppLuceneVersion, true);
             } catch(Exception e) {
-                await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Initialize {0}\n", e));
+                await Log.OutputAsync(string.Format("ExtremeFind: Initialize {0}\n", e));
                 return false;
             }
             return true;
@@ -190,7 +190,7 @@ namespace ExtremeFind86
                                     }
                                 }
                             } catch(Exception e) {
-                                await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: find {0}\n", e));
+                                await Log.OutputAsync(string.Format("ExtremeFind: find {0}\n", e));
                             }
                             deleteQueries.Add(new TermQuery(new Term("path", items[i].Item1)));
                             updateQueries.Add(new PathDate { Id = items[i].Item1, Date = currentLastWriteTime });
@@ -206,7 +206,7 @@ namespace ExtremeFind86
                 }
 #if DEBUG
                 stopwatchFiltering.Stop();
-                await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: filtering files {0} milliseconds\n", stopwatchFiltering.ElapsedMilliseconds));
+                await Log.OutputAsync(string.Format("ExtremeFind: filtering files {0} milliseconds\n", stopwatchFiltering.ElapsedMilliseconds));
 #endif
                 List<Lucene.Net.Documents.Document> documents = new List<Lucene.Net.Documents.Document>(1024);
                 int indexLineCount = 0;
@@ -230,7 +230,7 @@ namespace ExtremeFind86
                                 ++lineCount;
                                 ++indexLineCount;
                             }
-                            if(MaxBufferDocuments <= ++indexLineCount) {
+                            if(MaxBufferDocuments<= ++indexLineCount) {
                                 indexLineCount = 0;
                                 indexWriter.AddDocuments(documents);
                                 indexWriter.Commit();
@@ -239,9 +239,9 @@ namespace ExtremeFind86
                             }
                             ++indexFileCount;
                         }
-                        //await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: index {0} {1} {2}\n", file.Item1, file.Item2, lineCount));
+                        //await Log.OutputAsync(string.Format("ExtremeFind: index {0} {1} {2}\n", file.Item1, file.Item2, lineCount));
                     } catch(Exception e) {
-                        await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Indexing {0}\n", e));
+                        await Log.OutputAsync(string.Format("ExtremeFind: Indexing {0}\n", e));
                     }
                 } //for(int i = start; i < end; ++i)
                 try {
@@ -273,7 +273,7 @@ namespace ExtremeFind86
                 return;
             }
 
-            ExtremeFind86Package package = await serviceProvider_.GetServiceAsync(typeof(ExtremeFind86Package)) as ExtremeFind86Package;
+            ExtremeFindPackage package = await serviceProvider_.GetServiceAsync(typeof(ExtremeFindPackage)) as ExtremeFindPackage;
             if(null == package) {
                 return;
             }
@@ -281,10 +281,10 @@ namespace ExtremeFind86
             if(string.IsNullOrEmpty(solutionPath)) {
                 return;
             }
-            Stopwatch stopwatch = Stopwatch.StartNew();
             OptionExtremeFind dialog = package.GetDialogPage(typeof(OptionExtremeFind)) as OptionExtremeFind;
             HashSet<string> extensionSet = dialog.ExtensionSet;
             bool debugLog = dialog.OutputDebugLog;
+            Stopwatch stopwatch = Stopwatch.StartNew();
 
 #if DEBUG
             Stopwatch stopwatchFileGather = Stopwatch.StartNew();
@@ -297,9 +297,10 @@ namespace ExtremeFind86
             }
 #if DEBUG
             stopwatchFileGather.Stop();
-            await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: indexing gathering file {0} in {1} milliseconds\n", items.Count, stopwatchFileGather.ElapsedMilliseconds));
+            await Log.OutputAsync(string.Format("ExtremeFind: indexing gathering file {0} in {1} milliseconds\n", items.Count, stopwatchFileGather.ElapsedMilliseconds));
 #endif
             int indexFileCount = await IndexFilesAsync(items);
+
             stopwatch.Stop();
             if(debugLog) {
                 long elapsedMilliseconds = stopwatch.ElapsedMilliseconds;
@@ -308,10 +309,10 @@ namespace ExtremeFind86
                     using(DirectoryReader indexReader = DirectoryReader.Open(indexDirectory_)) {
                         IndexSearcher indexSearcher = new IndexSearcher(indexReader);
                         CollectionStatistics stats = indexSearcher.CollectionStatistics(FieldContent);
-                        await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: indexing {0}/{1} in {2} milliseconds, {3} docs in db\n", indexFileCount, items.Count, elapsedMilliseconds, stats.DocCount));
+                        await Log.OutputAsync(string.Format("ExtremeFind: indexing {0}/{1} in {2} milliseconds, {3} docs in db\n", indexFileCount, items.Count, elapsedMilliseconds, stats.DocCount));
                     }
                 } catch(Exception e) {
-                    await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: indexing {0}\n", e));
+                    await Log.OutputAsync(string.Format("ExtremeFind: indexing {0}\n", e));
                 }
             }
         }
@@ -372,14 +373,14 @@ namespace ExtremeFind86
             if(false == await CheckInitializeAsync()) {
                 return;
             }
-            ExtremeFind86Package package = await serviceProvider_.GetServiceAsync(typeof(ExtremeFind86Package)) as ExtremeFind86Package;
+            ExtremeFindPackage package = await serviceProvider_.GetServiceAsync(typeof(ExtremeFindPackage)) as ExtremeFindPackage;
             if(null == package) {
                 return;
             }
             OptionExtremeFind dialog = package.GetDialogPage(typeof(OptionExtremeFind)) as OptionExtremeFind;
             long timePreUpdate = Math.Max(0, UtcNow() - dialog.IndexExpiryTime);
-            IndexWriterConfig indexWriterConfig = new IndexWriterConfig(AppLuceneVersion, analyzer_);
             bool debugLog = dialog.OutputDebugLog;
+            IndexWriterConfig indexWriterConfig = new IndexWriterConfig(AppLuceneVersion, analyzer_);
 
             try {
                 using(IndexWriter indexWriter = new IndexWriter(indexDirectory_, indexWriterConfig))
@@ -389,11 +390,11 @@ namespace ExtremeFind86
                     indexWriter.DeleteDocuments(query);
                     if(debugLog) {
                         CollectionStatistics statsAfter = indexSearcher.CollectionStatistics(FieldContent);
-                        await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Documents after deleting {0}\n", statsAfter.DocCount));
+                        await Log.OutputAsync(string.Format("ExtremeFind: Documents after deleting {0}\n", statsAfter.DocCount));
                     }
                 }
             } catch(Exception e) {
-                await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Deleting {0}\n", e));
+                await Log.OutputAsync(string.Format("ExtremeFind: Deleting {0}\n", e));
             }
         }
 
@@ -483,7 +484,7 @@ namespace ExtremeFind86
             if(false == await CheckInitializeAsync()) {
                 return;
             }
-            ExtremeFind86Package package = await serviceProvider_.GetServiceAsync(typeof(ExtremeFind86Package)) as ExtremeFind86Package;
+            ExtremeFindPackage package = await serviceProvider_.GetServiceAsync(typeof(ExtremeFindPackage)) as ExtremeFindPackage;
             if(null == package) {
                 return;
             }
@@ -515,7 +516,8 @@ namespace ExtremeFind86
             if(false == await CheckInitializeAsync()) {
                 return;
             }
-            ExtremeFind86Package package = await serviceProvider_.GetServiceAsync(typeof(ExtremeFind86Package)) as ExtremeFind86Package;
+
+            ExtremeFindPackage package = await serviceProvider_.GetServiceAsync(typeof(ExtremeFindPackage)) as ExtremeFindPackage;
             if(null == package) {
                 return;
             }
@@ -589,7 +591,7 @@ namespace ExtremeFind86
                         pathdates.Upsert(new PathDate { Id = path, Date = currentLastWriteTime });
                         indexWriter.Commit();
                     } catch(Exception e) {
-                        await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Indexing {0}\n", e));
+                        await Log.OutputAsync(string.Format("ExtremeFind: Indexing {0}\n", e));
                     }
                 }
             }
@@ -601,7 +603,7 @@ namespace ExtremeFind86
 
         public async System.Threading.Tasks.Task<SearchResult?> SearchAsync(SearchWindowControl control, SearchQuery searchQuery)
         {
-            ExtremeFind86Package package = await serviceProvider_.GetServiceAsync(typeof(ExtremeFind86Package)) as ExtremeFind86Package;
+            ExtremeFindPackage package = await serviceProvider_.GetServiceAsync(typeof(ExtremeFindPackage)) as ExtremeFindPackage;
             if(null == package) {
                 return null;
             }
@@ -620,8 +622,9 @@ namespace ExtremeFind86
                 control.Results.Clear();
                 using(DirectoryReader indexReader = DirectoryReader.Open(indexDirectory_)) {
                     IndexSearcher indexSearcher = new IndexSearcher(indexReader);
-                    Analyzer analyzer = searchQuery.caseSensitive_ ? analyzer_ : lowerAnalyzer_;
+                    Analyzer analyzer = searchQuery.caseSensitive_? analyzer_ : lowerAnalyzer_;
                     string field = searchQuery.caseSensitive_ ? FieldContent : FieldContentLow;
+
                     Query query = null;
                     switch(searchQuery.method_) {
                     case SearchWindowControl.SearchMethod.Simple: {
@@ -633,7 +636,7 @@ namespace ExtremeFind86
                     }
                     break;
                     case SearchWindowControl.SearchMethod.Fuzzy: {
-                        query = new FuzzyQuery(new Term(field, searchQuery.text_));
+                        query = new FuzzyQuery(new Term(field, searchQuery.text_), dialog.FuzzyMinSimilarity);
                     }
                     break;
                     }
@@ -657,14 +660,11 @@ namespace ExtremeFind86
                     }
                 }
             } catch(Exception e) {
-                await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Searching {0}\n", e));
+                await Log.OutputAsync(string.Format("ExtremeFind: Searching {0}\n", e));
             }
             stopwatch.Stop();
             searchResult.totalTime_ = stopwatch.ElapsedMilliseconds;
             control.TextStatus = string.Format("Hits:{0}/{1} {2} ms", searchResult.hits_, searchResult.totalHits_, searchResult.totalTime_);
-#if DEBUG
-            await ExtremeFind86Package.OutputAsync(string.Format("ExtremeFind: Searching {0} milliseconds\n", stopwatch.ElapsedMilliseconds));
-#endif
             return searchResult;
         }
 

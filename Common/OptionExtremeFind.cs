@@ -56,6 +56,16 @@ namespace ExtremeFind
             set { selectLineWhenJumping_ = value;}
         }
 
+        [Category("General")]
+        [DisplayName("Fuzzy Min Similarity")]
+        [Description("Min similarity for fuzzy searching")]
+        [DefaultValue(false)]
+        public int FuzzyMinSimilarity
+        {
+            get { return fuzzyMinSimilarity_; }
+            set { fuzzyMinSimilarity_ = Math.Min(Math.Max(0, value), 32);}
+        }
+
         [Category("Debug")]
         [DisplayName("Debug Log")]
         [Description("Output debug logs")]
@@ -99,6 +109,7 @@ namespace ExtremeFind
         private int indexExpiryTime_ = 60*60*24*30;
         private int updateMinInterval_ = 60;
         private bool selectLineWhenJumping_ = false;
+        private int fuzzyMinSimilarity_ = 4;
         private bool outputDebugLog_ = false;
     }
 }
